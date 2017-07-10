@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 from aldryn_newsblog import __version__
 
 REQUIREMENTS = [
-    'Django>=1.6,<1.10',
+    'Django>=1.6,<1.11',
     'python-dateutil',
     'aldryn-apphooks-config>=0.2.4',
     'aldryn-boilerplates>=0.7.2',
@@ -36,6 +36,7 @@ CLASSIFIERS = [
     'Framework :: Django :: 1.7',
     'Framework :: Django :: 1.8',
     'Framework :: Django :: 1.9',
+    'Framework :: Django :: 1.10',
     'Intended Audience :: Developers',
     'License :: OSI Approved :: BSD License',
     'Operating System :: OS Independent',
@@ -45,6 +46,7 @@ CLASSIFIERS = [
     'Programming Language :: Python :: 3.3',
     'Programming Language :: Python :: 3.4',
     'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: 3.6',
     'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
     'Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News/Diary',
     'Topic :: Software Development',

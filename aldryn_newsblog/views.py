@@ -324,8 +324,12 @@ class CategoryArticleList(ArticleListBase):
         )
 
     def get(self, request, category):
-        self.category = get_object_or_404(
-            Category, translations__slug=category)
+        language = translation.get_language_from_request(
+            request, check_path=True)
+        self.category = Category.objects.language(language).active_translations(
+            language, slug=category).first()
+        if not self.category:
+            raise Http404('Category is not found')
         return super(CategoryArticleList, self).get(request)
 
     def get_context_data(self, **kwargs):

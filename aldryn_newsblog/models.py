@@ -215,11 +215,11 @@ class Article(TranslatedAutoSlugifyMixin,
             language = get_current_language()
         if request is None:
             request = get_request(language=language)
-        description = self.safe_translation_getter('lead_in', '')
+        description = self.safe_translation_getter('lead_in', '', language)
         text_bits = [strip_tags(description)]
         for category in self.categories.all():
             text_bits.append(
-                force_unicode(category.safe_translation_getter('name')))
+                force_unicode(category.safe_translation_getter('name', language_code=language)))
         for tag in self.tags.all():
             text_bits.append(force_unicode(tag.name))
         if self.content:
@@ -233,7 +233,7 @@ class Article(TranslatedAutoSlugifyMixin,
     def save(self, *args, **kwargs):
         # Update the search index
         if self.update_search_on_save:
-            self.search_data = self.get_search_data()
+            self.search_data = self.get_search_data(self.language_code)
 
         # Ensure there is an owner.
         if self.app_config.create_authors and self.author is None:
@@ -560,5 +560,5 @@ def update_search_data(sender, instance, **kwargs):
             if placeholder._attached_model_cache == Article:
                 article = placeholder._attached_model_cache.objects.language(
                     instance.language).get(content=placeholder.pk)
-                article.search_data = article.get_search_data(instance.language)
+                # NOTE: search_data will be updated in save()
                 article.save()

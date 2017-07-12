@@ -9,6 +9,8 @@ from cms.admin.placeholderadmin import (
 )
 from parler.forms import TranslatableModelForm
 from parler.admin import TranslatableAdmin
+from taggit.admin import TagAdmin
+from taggit.models import Tag
 from aldryn_apphooks_config.admin import BaseAppHookConfig, ModelAppHookConfig
 from aldryn_people.models import Person
 from aldryn_reversion.admin import VersionedPlaceholderAdminMixin
@@ -96,6 +98,10 @@ class ArticleAdminForm(TranslatableModelForm):
         if ('related' in self.fields and
                 hasattr(self.fields['related'], 'widget')):
             self.fields['related'].widget.can_add_related = False
+
+        tags = self.initial.get('tags')
+        if tags:
+            self.initial['tags'] = tags.filter(tag__language=self.instance.language_code)
 
 
 class ArticleAdmin(
@@ -187,4 +193,18 @@ class NewsBlogConfigAdmin(
         )
 
 
+class TaggedArticleInline(admin.StackedInline):
+    model = models.TaggedArticle
+
+
+class LanguageAwareTagAdmin(admin.ModelAdmin):
+    inlines = [TaggedArticleInline]
+    list_display = ['name', 'slug', 'language']
+    ordering = ['name', 'slug', 'language']
+    search_fields = ['name']
+    prepopulated_fields = {'slug': ['name']}
+
+
 admin.site.register(models.NewsBlogConfig, NewsBlogConfigAdmin)
+admin.site.register(models.LanguageAwareTag, LanguageAwareTagAdmin)
+admin.site.unregister(Tag)

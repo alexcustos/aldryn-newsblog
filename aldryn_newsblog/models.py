@@ -14,6 +14,7 @@ try:
 except ImportError:
     from django.utils.encoding import force_text as force_unicode
 
+from django.utils import six
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.timezone import now
 from django.utils.translation import ugettext_lazy as _, override, ugettext
@@ -36,7 +37,8 @@ from filer.fields.image import FilerImageField
 from parler.models import TranslatableModel, TranslatedFields
 from sortedm2m.fields import SortedManyToManyField
 from taggit.managers import TaggableManager
-from taggit.models import Tag
+from taggit.models import Tag, TagBase, GenericTaggedItemBase
+
 
 from .cms_appconfig import NewsBlogConfig
 from .managers import RelatedManager
@@ -64,6 +66,89 @@ SQL_IS_TRUE = {
     'mssql': '== TRUE', 'mysql': '= 1', 'postgresql': 'IS TRUE',
     'sqlite': '== 1', 'oracle': 'IS TRUE'
 }[connection.vendor]
+
+
+class LanguageAwareTag(TagBase):
+    name = models.CharField(verbose_name=_('Name'), max_length=100)
+    slug = models.SlugField(verbose_name=_('Slug'), max_length=100)
+    language = models.CharField(_("language"), max_length=15, blank=False, db_index=True, editable=False)
+
+    class Meta:
+        unique_together = (("name", "language"), ("slug", "language"), )
+        verbose_name = _("Tag")
+        verbose_name_plural = _("Tags")
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.lower()
+        super().save(*args, **kwargs)
+
+
+class TaggedArticle(GenericTaggedItemBase):
+    tag = models.ForeignKey(LanguageAwareTag, related_name="%(app_label)s_%(class)s_items")
+
+    @classmethod
+    def tags_for(cls, model, instance=None, **extra_filters):
+        extra_filters['language'] = instance.language_code
+        return super().tags_for(model, instance, **extra_filters)
+
+    @classmethod
+    def lookup_kwargs(cls, instance):
+        kwargs = super().lookup_kwargs(instance)
+        kwargs['tag__language'] = instance.language_code
+        return kwargs
+
+    @classmethod
+    def bulk_lookup_kwargs(cls, instances):
+        raise NotImplementedError("Bulk operations on the Language Aware Tags are not supported yet")
+        # return super().bulk_lookup_kwargs(instances)
+
+
+class ArticleTaggableManager(TaggableManager):
+
+    def _to_tag_model_instances(self, language, tags):
+        str_tags = set()
+        tag_objs = set()
+
+        for t in tags:
+            if isinstance(t, LanguageAwareTag):
+                tag_objs.add(t)
+            elif isinstance(t, six.string_types):
+                str_tags.add(t.lower())
+            else:
+                raise ValueError(
+                    "Cannot add {0} ({1}). Expected {2} or str.".format(
+                        t, type(t), type(LanguageAwareTag)))
+
+        existing = LanguageAwareTag.objects.filter(name__in=str_tags, language=language)
+        tags_to_create = str_tags - set(t.name for t in existing)
+
+        tag_objs.update(existing)
+
+        for new_tag in tags_to_create:
+            tag = LanguageAwareTag.objects.create(name=new_tag, language=language)
+            tag_objs.add(tag)
+
+        return tag_objs
+
+    def save_form_data(self, instance, value):
+        # super().save_form_data(instance, value)
+        manager = instance.tags
+
+        objs = self._to_tag_model_instances(instance.language_code, value)
+
+        old_tag_strs = set(TaggedArticle.objects
+                           .filter(**manager._lookup_kwargs())
+                           .values_list('tag__name', flat=True))
+
+        new_objs = []
+        for obj in objs:
+            if obj.name in old_tag_strs:
+                old_tag_strs.remove(obj.name)
+            else:
+                new_objs.append(obj)
+
+        manager.remove(*old_tag_strs)
+        manager.add(*new_objs)
 
 
 @python_2_unicode_compatible
@@ -138,7 +223,7 @@ class Article(TranslatedAutoSlugifyMixin,
         blank=True,
         on_delete=models.SET_NULL,
     )
-    tags = TaggableManager(blank=True)
+    tags = ArticleTaggableManager(blank=True, through=TaggedArticle)
 
     # Setting "symmetrical" to False since it's a bit unexpected that if you
     # set "B relates to A" you immediately have also "A relates to B". It have

@@ -18,14 +18,13 @@ from django.views.generic.detail import DetailView
 
 from menus.utils import set_language_changer
 from parler.views import TranslatableSlugMixin, ViewUrlMixin
-from taggit.models import Tag
 
 from aldryn_apphooks_config.mixins import AppConfigMixin
 from aldryn_categories.models import Category
 from aldryn_people.models import Person
 
 from aldryn_newsblog.utils.utilities import get_valid_languages_from_request
-from .models import Article
+from .models import Article, LanguageAwareTag
 from .utils import add_prefix_to_path
 
 
@@ -347,7 +346,9 @@ class TagArticleList(ArticleListBase):
         )
 
     def get(self, request, tag):
-        self.tag = get_object_or_404(Tag, slug=tag)
+        language = translation.get_language_from_request(
+            request, check_path=True)
+        self.tag = get_object_or_404(LanguageAwareTag, slug=tag, language=language)
         return super(TagArticleList, self).get(request)
 
     def get_context_data(self, **kwargs):

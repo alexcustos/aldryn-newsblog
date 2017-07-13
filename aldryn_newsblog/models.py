@@ -300,19 +300,21 @@ class Article(TranslatedAutoSlugifyMixin,
             language = get_current_language()
         if request is None:
             request = get_request(language=language)
+        text_bits = []
+        # for category in self.categories.all():
+        #     text_bits.append(
+        #         force_unicode(category.safe_translation_getter('name', language_code=language)))
         description = self.safe_translation_getter('lead_in', '', language)
-        text_bits = [strip_tags(description)]
-        for category in self.categories.all():
-            text_bits.append(
-                force_unicode(category.safe_translation_getter('name', language_code=language)))
-        for tag in self.tags.all():
-            text_bits.append(force_unicode(tag.name))
+        text_bits.append(strip_tags(description))
         if self.content:
             plugins = self.content.cmsplugin_set.filter(language=language)
             for base_plugin in plugins:
                 plugin_text_content = ' '.join(
                     get_plugin_index_data(base_plugin, request))
-                text_bits.append(plugin_text_content)
+                if plugin_text_content:
+                    text_bits.append(plugin_text_content)
+        for tag in self.tags.all():
+            text_bits.append(force_unicode(tag.name))
         return ' '.join(text_bits)
 
     def save(self, *args, **kwargs):

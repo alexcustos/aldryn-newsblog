@@ -75,7 +75,8 @@ class NewsBlogArchivePlugin(AdjustableCacheMixin, NewsBlogPlugin):
 
         context['dates'] = queryset.get_months(
             request,
-            namespace=instance.app_config.namespace
+            namespace=instance.app_config.namespace,
+            language=instance.language
         )
         return context
 

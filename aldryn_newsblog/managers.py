@@ -36,7 +36,7 @@ class RelatedManager(ManagerMixin, TranslatableManager):
     def published(self):
         return self.get_queryset().published()
 
-    def get_months(self, request, namespace):
+    def get_months(self, request, namespace, language):
         """
         Get months and years with articles count for given request and namespace
         string. This means how many articles there are in each month.
@@ -63,6 +63,8 @@ class RelatedManager(ManagerMixin, TranslatableManager):
             articles = self.namespace(namespace)
         else:
             articles = self.published().namespace(namespace)
+        if language:
+            articles = articles.active_translations(language)
         dates = articles.values_list('publishing_date', flat=True)
         dates = [(x.year, x.month) for x in dates]
         date_counter = Counter(dates)
